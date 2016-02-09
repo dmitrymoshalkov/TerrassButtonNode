@@ -2,6 +2,11 @@
 #include <PortExpander_I2C.h>
 #include <MySensor.h>
 #include <SPI.h>
+#include <DallasTemperature.h>
+#include <OneWire.h>
+#include <avr/wdt.h>
+#include <SimpleTimer.h>
+
 
  //#define NDEBUG                        // enable local debugging information
 
@@ -35,6 +40,9 @@
 #define BUTTON4DELAYED_CHILD_ID 48
 #define BUTTON5DELAYED_CHILD_ID 49
 
+#define TEMP1_CHILD_ID	60
+#define TEMP2_CHILD_ID	61
+
 #define REBOOT_CHILD_ID                       100
 #define RECHECK_SENSOR_VALUES                 101 
 #define LOCAL_SWITCHING_CHILD_ID              106
@@ -57,15 +65,18 @@
 #define RELAY4_PIN	6
 #define RELAY5_PIN	7
 
+#define ONE_WIRE_BUS              8      // Pin where dallase sensor is connected 
+
 #define RELAY_ON 1  // GPIO value to write to turn on attached relay
 #define RELAY_OFF 0 // GPIO value to write to turn off attached relay
 
+#define TEMPCHECK_TIME 120000
 
 PortExpander_I2C pe(0x20);
 
-int buttonPin = 0; 
-int ledPin = A0; 
-boolean ledState;
+//int buttonPin = 0; 
+//int ledPin = A0; 
+//boolean ledState;
 const unsigned long debounceTime = 10;  // milliseconds
 unsigned long switch1PressTime;  // when the switch last changed state
 unsigned long switch2PressTime;  // when the switch last changed state
@@ -110,6 +121,11 @@ int iCount = MESSAGE_ACK_RETRY_COUNT;
 
 boolean boolRecheckSensorValues = false;
 
+OneWire oneWire(ONE_WIRE_BUS);        // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
+DallasTemperature sensors(&oneWire);  // Pass the oneWire reference to Dallas Temperature. 
+unsigned long previousTempMillis=0;
+float lastTemp1 = -1;
+float lastTemp2 = -1;
 
 MySensor sensor_node;
 
@@ -141,6 +157,9 @@ MyMessage msgRelay5Delayed(BUTTON5DELAYED_CHILD_ID, V_STATUS);
 
 MyMessage msgLocalSwitching(LOCAL_SWITCHING_CHILD_ID, V_STATUS);
 
+MyMessage msgTemp1(TEMP1_CHILD_ID, V_TEMP);
+MyMessage msgTemp2(TEMP2_CHILD_ID, V_TEMP);
+
 void setup() {
   // put your setup code here, to run once:
   pe.init();
@@ -154,6 +173,12 @@ pinMode(A0, OUTPUT);
 pinMode(A1, OUTPUT);
 pinMode(A2, OUTPUT);
 pinMode(A3, OUTPUT);
+
+pinMode(8, INPUT);
+
+  // requestTemperatures() will not block current thread
+  sensors.setWaitForConversion(false);
+
 
   sensor_node.begin(incomingMessage, NODE_ID, false);
 
@@ -212,6 +237,13 @@ pinMode(A3, OUTPUT);
     sensor_node.present(BUTTON5_PIN, S_LIGHT);    
 
 
+    //temperature sensors
+    sensor_node.wait(RADIO_RESET_DELAY_TIME); 
+    sensor_node.present(TEMP1_CHILD_ID, S_TEMP);     
+    sensor_node.wait(RADIO_RESET_DELAY_TIME); 
+    sensor_node.present(TEMP2_CHILD_ID, S_TEMP);  
+
+
     //reboot sensor command
     sensor_node.wait(RADIO_RESET_DELAY_TIME);
     sensor_node.present(REBOOT_CHILD_ID, S_BINARY); //, "Reboot node sensor", true); 
@@ -224,6 +256,7 @@ pinMode(A3, OUTPUT);
     sensor_node.wait(RADIO_RESET_DELAY_TIME);
   	sensor_node.present(LOCAL_SWITCHING_CHILD_ID, S_BINARY);    
 
+  	//checkTempTimer.setInterval(10000, checkTemperature);
 
     sensor_node.wait(RADIO_RESET_DELAY_TIME); 
     sensor_node.request(RELAY1_CHILD_ID, V_LIGHT);
@@ -246,6 +279,8 @@ chechButton2();
 chechButton3();
 chechButton4();
 chechButton5();
+
+checkTemperature();
 
 sensor_node.process();
 
@@ -1251,86 +1286,104 @@ void resendRelayStatus()
 
 }
 
-/*
 
-  byte switchState = pe.digitalRead (buttonPin);
-  
-  if (switchState != oldSwitchState)
-    {
-    	           Serial.println (switchState);
-    // debounce
-    if (millis () - switchPressTime >= debounceTime)
-       {
-       //switchTime = switchPressTime;
-
-       if (switchState == LOW)
-          {
+void checkTemperature()
+{
 
 
-		    if ( !bRelay1State )
-		    {
+    unsigned long currentTempMillis = millis();
+    if((currentTempMillis - previousTempMillis ) > TEMPCHECK_TIME ) {
+        // Save the current millis
+        previousTempMillis = currentTempMillis;
 
-		    	bRelay1State = true;
-		    	digitalWrite(ledPin, HIGH);
-          		ledState = true;
-          		digitalWrite(3, HIGH);
-          		digitalWrite(4, HIGH);
-		    }	
-		    else
-		    {
+// Fetch temperatures from Dallas sensors
+  sensors.requestTemperatures();
 
-		    	bRelay1State = false;
-		    	digitalWrite(ledPin, LOW);
-          		ledState = false;
-          		digitalWrite(3, LOW);	
-          		digitalWrite(4, LOW);	          			    	
-		    }
-          Serial.println ("Switch closed.");
+  // query conversion time and sleep until conversion completed
+  int16_t conversionTime = sensors.millisToWaitForConversion(sensors.getResolution());
+  // sleep() call can be replaced by wait() call if node need to process incoming messages (or if node is repeater)
+  sensor_node.wait(conversionTime);
 
-          //switchTime =  millis () - switchPressTime;
-          }  // end if switchState is LOW
-        else
-          {
+ float temperature = static_cast<float>(static_cast<int>(sensors.getTempCByIndex(0) * 10.)) / 10.;
 
-          Serial.print ("Switch press time: ");
-          Serial.println (millis () - switchPressTime);   
-          Serial.println ("Switch opened.");
-          bRelay1DelayMessageSent = false;	
 
-          //switchTime=0;                 
-          }  // end if switchState is HIGH
 
-       switchPressTime = millis ();  // when we closed the switch 
-       oldSwitchState =  switchState;  // remember for next time 
 
-           
-       }  // end if debounce time up
-        
-    }  // end of state change
-    else
-    {
-    	if (switchState == LOW && !bRelay1DelayMessageSent)
-    	{
-          if (millis () - switchPressTime >=2000)
-          {
-          	if ( bRelay1State )
-          	{
-          		digitalWrite(ledPin, LOW);
-          		digitalWrite(3, LOW);
-          		bRelay1State=false;
-          		ledState=false;             
-			}
-			else
-			{
-          		digitalWrite(ledPin, HIGH);
-          		digitalWrite(3, HIGH);
-          		bRelay1State=true;
-          		ledState=false;  				
-			}
-			bRelay1DelayMessageSent = true;
-          }
+         if (temperature != lastTemp1 && temperature != -127.00 && temperature != 85.00 ) {
 
-    	}
+          		#ifdef NDEBUG                
+                Serial.print ("Temp: ");
+          	    Serial.println (temperature); 
+          	    #endif
 
-    }
-*/
+     		   			//Отсылаем состояние реле с подтверждением получения
+			            iCount = MESSAGE_ACK_RETRY_COUNT;
+
+			              while( !gotAck && iCount > 0 )
+			                {
+			      
+			    	            sensor_node.send(msgTemp1.set(temperature,2), true);
+			                    sensor_node.wait(RADIO_RESET_DELAY_TIME);
+			                  iCount--;
+			                 }
+
+			                gotAck = false;	     
+
+
+			                if ( temperature >= 60 )
+			                {
+			                	//switch off all relays
+     		  					 bRelay2State = false;
+     		   					 switchRelayON_OFF( RELAY2_PIN, RELAY_OFF );			                	
+     		  					 bRelay3State = false;
+     		   					 switchRelayON_OFF( RELAY3_PIN, RELAY_OFF );
+     		  					 bRelay4State = false;
+     		   					 switchRelayON_OFF( RELAY4_PIN, RELAY_OFF );
+     		  					 bRelay5State = false;
+     		   					 switchRelayON_OFF( RELAY5_PIN, RELAY_OFF );   
+     		   					 resendRelayStatus();  		   					      		   					 
+			                }     		
+
+            lastTemp1 = temperature;
+        	} 
+
+ temperature = static_cast<float>(static_cast<int>(sensors.getTempCByIndex(1) * 10.)) / 10.;
+
+
+
+
+         if (temperature != lastTemp2 && temperature != -127.00 && temperature != 85.00 ) {
+                
+          		#ifdef NDEBUG
+                Serial.print ("Temp2: ");
+          	    Serial.println (temperature); 
+          	    #endif
+
+     		   			//Отсылаем состояние реле с подтверждением получения
+			            iCount = MESSAGE_ACK_RETRY_COUNT;
+
+			              while( !gotAck && iCount > 0 )
+			                {
+			      
+			    	            sensor_node.send(msgTemp2.set(temperature,2), true);
+			                    sensor_node.wait(RADIO_RESET_DELAY_TIME);
+			                  iCount--;
+			                 }
+
+			                gotAck = false;	          		
+
+			                if ( temperature >= 60 )
+			                {
+			                	//switch off all relays
+     		  					 bRelay1State = false;
+     		   					 switchRelayON_OFF( RELAY1_PIN, RELAY_OFF );	
+     		   					 resendRelayStatus();			                	
+			                }     	
+
+            lastTemp2 = temperature;
+        	} 
+
+
+
+      }
+}
