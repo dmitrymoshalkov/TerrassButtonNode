@@ -127,6 +127,10 @@ unsigned long previousTempMillis=0;
 float lastTemp1 = -1;
 float lastTemp2 = -1;
 
+boolean bNoControllerMode = false;
+int Switch1PressCounter=0;
+int Switch5PressCounter=0;
+
 MySensor sensor_node;
 
 MyMessage msgButton1(BUTTON1_CHILD_ID, V_LIGHT);
@@ -175,6 +179,24 @@ pinMode(A2, OUTPUT);
 pinMode(A3, OUTPUT);
 
 pinMode(8, INPUT);
+
+
+bNoControllerMode=sensor_node.loadState(0);
+
+   if ( !bNoControllerMode )
+   {
+
+
+
+    for (int i=0; i<=10; i++)
+    {
+      digitalWrite(A0, HIGH);
+      digitalWrite(A1, HIGH);
+      delay(250);
+      digitalWrite(A0, LOW);
+      digitalWrite(A1, LOW);      
+      delay(250);      
+    }
 
   // requestTemperatures() will not block current thread
   sensors.setWaitForConversion(false);
@@ -270,9 +292,47 @@ pinMode(8, INPUT);
     sensor_node.request(RELAY5_CHILD_ID, V_LIGHT);
     sensor_node.wait(RADIO_RESET_DELAY_TIME); 
     sensor_node.request(LOCAL_SWITCHING_CHILD_ID, V_STATUS);    
+
+  }
+  else
+  {
+
+    for (int i=0; i<=10; i++)
+    {
+      digitalWrite(A2, HIGH);
+      digitalWrite(A3, HIGH);
+      delay(250);
+      digitalWrite(A2, LOW);
+      digitalWrite(A3, LOW);      
+      delay(250);      
+    }
+
+  }
+
 }
 
 void loop() {
+
+if ( Switch1PressCounter == 5 && Switch5PressCounter == 1)
+{
+
+    if (bNoControllerMode)
+    {
+      sensor_node.saveState(0, false);
+      //uint8_t sensor_node.loadState(uint8_t pos);
+    }
+    else
+    {
+      sensor_node.saveState(0, true);
+
+    }
+
+      wdt_enable(WDTO_30MS);
+        while(1) {};
+
+}
+
+
 
 chechButton1();
 chechButton2();
@@ -282,8 +342,10 @@ chechButton5();
 
 checkTemperature();
 
-sensor_node.process();
-
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
+      sensor_node.process();
+    }
 
 if (boolRecheckSensorValues)
 {
@@ -476,6 +538,9 @@ void chechButton1 ()
        if (switchState == LOW)
           {
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
+
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -488,6 +553,7 @@ void chechButton1 ()
                  }
 
                 gotAck = false;
+    }
 
             if ( localSwitching )  
             {
@@ -497,6 +563,9 @@ void chechButton1 ()
 			    	bRelay1State = true;
 			    	switchRelayON_OFF( RELAY1_PIN, RELAY_ON );
 
+
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 					    //Отсылаем состояние реле с подтверждением получения
 			            iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -509,7 +578,7 @@ void chechButton1 ()
 			                 }
 
 			                gotAck = false;			    	
-
+    }
 			    }	
 			    else
 			    {
@@ -517,6 +586,8 @@ void chechButton1 ()
 			    	bRelay1State = false;
 			    	switchRelayON_OFF( RELAY1_PIN, RELAY_OFF );       
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 					    //Отсылаем состояние реле с подтверждением получения
 			            iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -529,7 +600,8 @@ void chechButton1 ()
 			                 }
 
 			                gotAck = false;	
-			    	//send status message		    	  			    	
+			    	//send status message		  
+    }          	  			    	
 			    }
 			}
 
@@ -547,8 +619,13 @@ void chechButton1 ()
           Serial.println ("Switch opened.");
           #endif 
 
+          Switch1PressCounter++;
+
           bRelay1DelayMessageSent = false;	
 
+
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -562,7 +639,7 @@ void chechButton1 ()
 
                 gotAck = false;          
 
-                       
+    }                   
           }  // end if switchState is HIGH
 
        switch1PressTime = millis ();  // when we closed the switch 
@@ -587,6 +664,8 @@ void chechButton1 ()
 				//send delayed status message 				
 			}
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -599,6 +678,7 @@ void chechButton1 ()
                  }
 
                 gotAck = false;  
+    }            
 			bRelay1DelayMessageSent = true;
           }
 
@@ -625,6 +705,8 @@ void chechButton2 ()
        if (switchState == LOW)
           {
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -638,6 +720,7 @@ void chechButton2 ()
 
                 gotAck = false;
 
+    }
             if ( localSwitching )  
             {
 			    if ( !bRelay2State )
@@ -646,7 +729,9 @@ void chechButton2 ()
 			    	bRelay2State = true;
 			    	switchRelayON_OFF( RELAY2_PIN, RELAY_ON );
 
-					    //Отсылаем состояние реле с подтверждением получения
+		if ( !bNoControllerMode ) //если не в локальном режиме
+    {
+    			    //Отсылаем состояние реле с подтверждением получения
 			            iCount = MESSAGE_ACK_RETRY_COUNT;
 
 			              while( !gotAck && iCount > 0 )
@@ -658,14 +743,17 @@ void chechButton2 ()
 			                 }
 
 			                gotAck = false;			    	
-
-			    }	
+    }
+		
+    	    }	
 			    else
 			    {
 
 			    	bRelay2State = false;
 			    	switchRelayON_OFF( RELAY2_PIN, RELAY_OFF );       
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 					    //Отсылаем состояние реле с подтверждением получения
 			            iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -679,7 +767,8 @@ void chechButton2 ()
 
 			                gotAck = false;			    	
 
-			    	//send status message		    	  			    	
+			    	//send status message		   
+    }         	  			    	
 			    }
 			}
 
@@ -697,8 +786,12 @@ void chechButton2 ()
           Serial.println ("Switch opened.");
           #endif 
 
+          Switch1PressCounter = 0;
+
           bRelay2DelayMessageSent = false;	
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -711,7 +804,7 @@ void chechButton2 ()
                  }
 
                 gotAck = false;          
-
+    }
                        
           }  // end if switchState is HIGH
 
@@ -737,6 +830,8 @@ void chechButton2 ()
 				//send delayed status message 				
 			}
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -749,6 +844,8 @@ void chechButton2 ()
                  }
 
                 gotAck = false;  
+    }
+
 			bRelay2DelayMessageSent = true;
           }
 
@@ -775,6 +872,8 @@ void chechButton3 ()
        if (switchState == LOW)
           {
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -787,6 +886,7 @@ void chechButton3 ()
                  }
 
                 gotAck = false;
+    }            
 
             if ( localSwitching )  
             {
@@ -796,6 +896,8 @@ void chechButton3 ()
 			    	bRelay3State = true;
 			    	switchRelayON_OFF( RELAY3_PIN, RELAY_ON );
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 					    //Отсылаем состояние реле с подтверждением получения
 			            iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -807,7 +909,8 @@ void chechButton3 ()
 			                  iCount--;
 			                 }
 
-			                gotAck = false;			    	
+			                gotAck = false;			    
+    }                  	
 			    }	
 			    else
 			    {
@@ -815,6 +918,8 @@ void chechButton3 ()
 			    	bRelay3State = false;
 			    	switchRelayON_OFF( RELAY3_PIN, RELAY_OFF );       
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 					    //Отсылаем состояние реле с подтверждением получения
 			            iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -828,7 +933,8 @@ void chechButton3 ()
 
 			                gotAck = false;			    	
 
-			    	//send status message		    	  			    	
+			    	//send status message		   
+    }         	  			    	
 			    }
 			}
 
@@ -846,8 +952,12 @@ void chechButton3 ()
           Serial.println ("Switch opened.");
           #endif 
 
+          Switch1PressCounter = 0;
+
           bRelay3DelayMessageSent = false;	
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -860,7 +970,7 @@ void chechButton3 ()
                  }
 
                 gotAck = false;          
-
+    }            
                        
           }  // end if switchState is HIGH
 
@@ -886,6 +996,8 @@ void chechButton3 ()
 				//send delayed status message 				
 			}
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -898,6 +1010,7 @@ void chechButton3 ()
                  }
 
                 gotAck = false;  
+    }            
 			bRelay3DelayMessageSent = true;
           }
 
@@ -925,6 +1038,8 @@ void chechButton4 ()
        if (switchState == LOW)
           {
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -937,6 +1052,7 @@ void chechButton4 ()
                  }
 
                 gotAck = false;
+    }            
 
             if ( localSwitching )  
             {
@@ -946,6 +1062,8 @@ void chechButton4 ()
 			    	bRelay4State = true;
 			    	switchRelayON_OFF( RELAY4_PIN, RELAY_ON );
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 					    //Отсылаем состояние реле с подтверждением получения
 			            iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -957,7 +1075,8 @@ void chechButton4 ()
 			                  iCount--;
 			                 }
 
-			                gotAck = false;			    	
+			                gotAck = false;			 
+    }                     	
 
 			    }	
 			    else
@@ -966,6 +1085,8 @@ void chechButton4 ()
 			    	bRelay4State = false;
 			    	switchRelayON_OFF( RELAY4_PIN, RELAY_OFF );       
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 					    //Отсылаем состояние реле с подтверждением получения
 			            iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -979,7 +1100,8 @@ void chechButton4 ()
 
 			                gotAck = false;			    	
 
-			    	//send status message		    	  			    	
+			    	//send status message		 
+    }           	  			    	
 			    }
 			}
 
@@ -997,8 +1119,12 @@ void chechButton4 ()
           Serial.println ("Switch opened.");
           #endif 
 
+          Switch1PressCounter = 0;          
+
           bRelay4DelayMessageSent = false;	
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -1012,7 +1138,7 @@ void chechButton4 ()
 
                 gotAck = false;          
 
-                       
+    }                   
           }  // end if switchState is HIGH
 
        switch4PressTime = millis ();  // when we closed the switch 
@@ -1037,6 +1163,8 @@ void chechButton4 ()
 				//send delayed status message 				
 			}
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -1049,6 +1177,7 @@ void chechButton4 ()
                  }
 
                 gotAck = false;  
+    }            
 			bRelay4DelayMessageSent = true;
           }
 
@@ -1076,6 +1205,8 @@ void chechButton5 ()
        if (switchState == LOW)
           {
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -1088,6 +1219,7 @@ void chechButton5 ()
                  }
 
                 gotAck = false;
+    }
 
             if ( localSwitching )  
             {
@@ -1097,6 +1229,8 @@ void chechButton5 ()
 			    	bRelay5State = true;
 			    	switchRelayON_OFF( RELAY5_PIN, RELAY_ON );
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 					    //Отсылаем состояние реле с подтверждением получения
 			            iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -1108,7 +1242,8 @@ void chechButton5 ()
 			                  iCount--;
 			                 }
 
-			                gotAck = false;			    	
+			                gotAck = false;		
+    }                  	    	
 			    }	
 			    else
 			    {
@@ -1116,6 +1251,8 @@ void chechButton5 ()
 			    	bRelay5State = false;
 			    	switchRelayON_OFF( RELAY5_PIN, RELAY_OFF );       
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 					    //Отсылаем состояние реле с подтверждением получения
 			            iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -1129,7 +1266,8 @@ void chechButton5 ()
 
 			                gotAck = false;			    	
 
-			    	//send status message		    	  			    	
+			    	//send status message		    
+    }        	  			    	
 			    }
 			}
 
@@ -1147,8 +1285,21 @@ void chechButton5 ()
           Serial.println ("Switch opened.");
           #endif 
 
+          if (Switch1PressCounter == 5)
+          {
+
+            Switch5PressCounter++;
+          }
+          else
+          {
+
+            Switch1PressCounter = 0;
+          }
+
           bRelay5DelayMessageSent = false;	
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -1162,7 +1313,7 @@ void chechButton5 ()
 
                 gotAck = false;          
 
-                       
+    }                   
           }  // end if switchState is HIGH
 
        switch5PressTime = millis ();  // when we closed the switch 
@@ -1187,6 +1338,8 @@ void chechButton5 ()
 				//send delayed status message 				
 			}
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
 		    //Отсылаем нажатие кнопки с подтверждением получения
             iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -1199,7 +1352,8 @@ void chechButton5 ()
                  }
 
                 gotAck = false;  
-			bRelay5DelayMessageSent = true;
+		}
+    	bRelay5DelayMessageSent = true;
           }
 
     	}
@@ -1212,6 +1366,8 @@ void chechButton5 ()
 void resendRelayStatus()
 {
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
    			//Отсылаем состояние реле с подтверждением получения
         iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -1282,7 +1438,7 @@ void resendRelayStatus()
 
             gotAck = false;	
    			  		     		
-
+    }
 
 }
 
@@ -1295,6 +1451,9 @@ void checkTemperature()
     if((currentTempMillis - previousTempMillis ) > TEMPCHECK_TIME ) {
         // Save the current millis
         previousTempMillis = currentTempMillis;
+
+          Switch1PressCounter = 0;
+          Switch5PressCounter = 0;
 
 // Fetch temperatures from Dallas sensors
   sensors.requestTemperatures();
@@ -1316,6 +1475,8 @@ void checkTemperature()
           	    Serial.println (temperature); 
           	    #endif
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
      		   			//Отсылаем состояние реле с подтверждением получения
 			            iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -1328,7 +1489,7 @@ void checkTemperature()
 			                 }
 
 			                gotAck = false;	     
-
+    }                  
 
 			                if ( temperature >= 60 )
 			                {
@@ -1359,6 +1520,8 @@ void checkTemperature()
           	    Serial.println (temperature); 
           	    #endif
 
+   if ( !bNoControllerMode ) //если не в локальном режиме
+   {
      		   			//Отсылаем состояние реле с подтверждением получения
 			            iCount = MESSAGE_ACK_RETRY_COUNT;
 
@@ -1372,7 +1535,8 @@ void checkTemperature()
 
 			                gotAck = false;	          		
 
-			                if ( temperature >= 60 )
+		}
+    	                if ( temperature >= 60 )
 			                {
 			                	//switch off all relays
      		  					 bRelay1State = false;
